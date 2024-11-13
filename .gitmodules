@@ -1,0 +1,6 @@
+[submodule "open-toontown-resources"]
+	path = open-toontown-resources
+	url = https://github.com/open-toontown/resources.git
+[submodule "library/open-toontown-resources"]
+	path = library/open-toontown-resources
+	url = https://github.com/open-toontown/resources.git
