@@ -19,5 +19,6 @@ jobs:
       - run: ./gradlew --console plain :app:shadowJar
       - run: mv app/build/libs/app-1.0-SNAPSHOT-all.jar ./bam2json.jar
       - uses: actions/upload-artifact@v4
-        name: bam2json
-        path: ./bam2json.jar
+        with:
+          name: bam2json
+          path: ./bam2json.jar
