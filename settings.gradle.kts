@@ -12,3 +12,4 @@ pluginManagement {
 
 rootProject.name = "bam-file-reader"
 include(":library")
+include(":app")

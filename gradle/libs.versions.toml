@@ -2,11 +2,18 @@
 kotlin = "2.0.20"
 joml = "1.10.8"
 kotlinx-json = "1.7.3"
+clikt = "5.0.1"
+shadow = "8.3.5"
 
 [libraries]
 joml = { module = "org.joml:joml", version.ref = "joml" }
 kotlinx-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-json" }
+kotlinx-serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-json" }
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+

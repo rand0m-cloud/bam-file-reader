@@ -13,7 +13,8 @@ repositories {
 
 dependencies {
     implementation(libs.joml)
-    implementation(libs.kotlinx.json)
+    implementation(libs.kotlinx.serialization)
+    testImplementation(libs.kotlinx.json)
     testImplementation(kotlin("test"))
 }
 
