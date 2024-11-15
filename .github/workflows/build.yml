@@ -2,9 +2,8 @@ name: Build bam2json
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -13,12 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 20
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v4
         with:
-          java-version: 20
-      - run: ./gradlew --console plain :app:shadowJar
+          distribution: 'temurin'
+          java-version: '20'
+          cache: 'gradle'
+      - run: ./gradlew --no-daemon --console plain :app:shadowJar
       - run: mv app/build/libs/app-1.0-SNAPSHOT-all.jar ./bam2json.jar
-      - uses: actions/upload-artifact@v4
+      - name: Create release
+        uses: softprops/action-gh-release@v2
         with:
-          name: bam2json
-          path: ./bam2json.jar
+          files: ./bam2json.jar
