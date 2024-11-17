@@ -2,7 +2,7 @@ import org.jreleaser.model.Active
 import org.jreleaser.model.Signing
 
 group = "io.github.rand0m-cloud.bam-file-reader"
-version = "0.1"
+version = "0.1-rc"
 
 val stagingDeploy = rootProject.layout.buildDirectory.dir("staging-deploy")
 
@@ -38,6 +38,8 @@ allprojects {
 }
 
 jreleaser {
+    strict = true
+
     project {
         description = "A Kotlin project for using .bam files from the Panda3D engine."
         copyright = "2024"
@@ -46,9 +48,10 @@ jreleaser {
     signing {
         active = Active.ALWAYS
         armored = true
-        mode = Signing.Mode.FILE
-        publicKey = "publickey.asc"
-        secretKey = "secretkey.asc"
+        mode = Signing.Mode.COMMAND
+        command {
+            keyName = "3F702352828D85E5A456DB86159B0816973D1C2E"
+        }
     }
 
     deploy {
@@ -70,7 +73,7 @@ val cleanStagingMaven by tasks.registering(Delete::class) {
 }
 
 tasks.register("setupStagingMaven") {
-    dependsOn(cleanStagingMaven)
+    dependsOn(cleanStagingMaven, ":library:compileKotlin")
     finalizedBy(":library:publishMavenPublicationToMavenRepository")
 }
 

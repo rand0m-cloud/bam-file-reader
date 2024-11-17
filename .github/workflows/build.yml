@@ -1,4 +1,4 @@
-name: Build bam2json
+name: Build bam2json and release library on Maven Central
 
 on:
   push:
@@ -17,15 +17,25 @@ jobs:
           distribution: 'temurin'
           java-version: '20'
           cache: 'gradle'
-      - run: ./gradlew --no-daemon --console plain :app:shadowJar
-      - run: mv app/build/libs/app-1.0-SNAPSHOT-all.jar ./bam2json.jar
+
+      - run: ./gradlew --no-daemon --console plain :app:shadowJar && mv app/build/libs/app-*-all.jar ./bam2json.jar
+
       - name: Create bam2json release
         uses: softprops/action-gh-release@v2
         with:
           files: ./bam2json.jar
+
       - name: Setup GPG keys for signing
         run: |
-          echo -e "${{ secrets.GPG_PUBLIC_KEY }}" > publickey.asc
-          echo -e "${{ secrets.GPG_PRIVATE_KEY }}" > secretkey.asc
+          echo -e "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          gpg --list-keys
+
+      - name: Setup Maven Central credentials
+        run: |
+          mkdir ~/.jreleaser
+          echo "JRELEASER_DEPLOY_MAVEN_MAVENCENTRAL_SONATYPE_USERNAME=${{ secrets.MAVENCENTRAL_USERNAME }}" > ~/.jreleaser/config.properties
+          echo "JRELEASER_DEPLOY_MAVEN_MAVENCENTRAL_SONATYPE_PASSWORD=${{ secrets.MAVENCENTRAL_PASSWORD }}" >> ~/.jreleaser/config.properties
+          echo "JRELEASER_GPG_PASSPHRASE=*" >> ~/.jreleaser/config.properties
+
       - name: Run :releaseLibrary
         run: ./gradlew --no-daemon --console plain :releaseLibrary
