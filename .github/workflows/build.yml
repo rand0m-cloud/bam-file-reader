@@ -19,7 +19,13 @@ jobs:
           cache: 'gradle'
       - run: ./gradlew --no-daemon --console plain :app:shadowJar
       - run: mv app/build/libs/app-1.0-SNAPSHOT-all.jar ./bam2json.jar
-      - name: Create release
+      - name: Create bam2json release
         uses: softprops/action-gh-release@v2
         with:
           files: ./bam2json.jar
+      - name: Setup GPG keys for signing
+        run: |
+          echo -e "${{ secrets.GPG_PUBLIC_KEY }}" > publickey.asc
+          echo -e "${{ secrets.GPG_PRIVATE_KEY }}" > secretkey.asc
+      - name: Run :releaseLibrary
+        run: ./gradlew --no-daemon --console plain :releaseLibrary

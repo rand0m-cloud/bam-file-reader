@@ -5,9 +5,6 @@ plugins {
     application
 }
 
-group = "org.toontownkt.bam"
-version = "1.0-SNAPSHOT"
-
 repositories {
     mavenCentral()
 }
