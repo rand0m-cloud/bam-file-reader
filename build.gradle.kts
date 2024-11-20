@@ -2,7 +2,7 @@ import org.jreleaser.model.Active
 import org.jreleaser.model.Signing
 
 group = "io.github.rand0m-cloud.bam-file-reader"
-version = "0.1-rc"
+version = "0.1"
 
 val stagingDeploy = rootProject.layout.buildDirectory.dir("staging-deploy")
 
