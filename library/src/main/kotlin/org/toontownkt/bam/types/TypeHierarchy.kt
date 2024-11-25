@@ -124,6 +124,7 @@ public sealed interface Geom : PandaObject {
     public val boundsType: UByte
 }
 
+// TODO: missing PTA data
 @Serializable
 public sealed interface GeomPrimitive : PandaObject {
     public val shadeModel: UByte
@@ -131,6 +132,7 @@ public sealed interface GeomPrimitive : PandaObject {
     public val numVertices: Int
     public val indexType: UByte
     public val usageHint: UByte
+    public val indices: ObjPointer<GeomVertexArrayData>?
 }
 
 @Serializable

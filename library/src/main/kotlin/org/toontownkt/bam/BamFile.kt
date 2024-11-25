@@ -3,6 +3,7 @@
 package org.toontownkt.bam
 
 import kotlinx.serialization.Serializable
+import org.toontownkt.bam.types.ObjPointer
 import org.toontownkt.bam.types.PandaObject
 import java.io.File
 import java.io.InputStream
@@ -43,18 +44,22 @@ public data class BamFile(
     val objects: Map<UShort, PandaObject>
 ) {
     public companion object {
-        public fun fromFile(file: File): BamFile {
-            val bam = RawBamFile.fromFile(file)
+        public fun fromFile(file: File): BamFile = fromRaw(RawBamFile.fromFile(file))
+
+        public fun fromRaw(rawBamFile: RawBamFile): BamFile {
             return BamFile(
-                bam.majorVersion,
-                bam.minorVersion,
-                bam.littleEndian,
-                bam.objectMap.entries.associate {
-                    it.key to bam.instanceBamType<PandaObject>(it.key)
+                rawBamFile.majorVersion,
+                rawBamFile.minorVersion,
+                rawBamFile.littleEndian,
+                rawBamFile.objectMap.entries.associate {
+                    it.key to rawBamFile.instanceBamType<PandaObject>(it.key)
                 }
             )
         }
     }
+
+    @Suppress("UNCHECKED_CAST")
+    public operator  fun <T: PandaObject> get(ptr: ObjPointer<T>): T = objects[ptr.objectId] as T
 }
 
 @Serializable

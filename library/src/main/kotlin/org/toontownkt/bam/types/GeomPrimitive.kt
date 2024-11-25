@@ -3,6 +3,9 @@ package org.toontownkt.bam.types
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.toontownkt.bam.BamFactoryScope
+import org.toontownkt.bam.getObjPointer
+import org.toontownkt.bam.getObjPointerOrNull
+import org.toontownkt.bam.readBytesToArray
 
 @Serializable
 @SerialName("GeomPrimitive")
@@ -11,7 +14,8 @@ public data class GeomPrimitiveImpl(
     override val firstVertex: Int,
     override val numVertices: Int,
     override val indexType: UByte,
-    override val usageHint: UByte
+    override val usageHint: UByte,
+    override val indices: ObjPointer<GeomVertexArrayData>?
 ) : GeomPrimitive
 
 @Serializable
@@ -28,7 +32,8 @@ public fun BamFactoryScope.getGeomPrimitive(): GeomPrimitive {
         getI32(),
         getI32(),
         getU8(),
-        getU8()
+        getU8(),
+        getObjPointerOrNull(),
     )
 }
 

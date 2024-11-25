@@ -41,7 +41,9 @@ public interface BamFactoryScope {
 }
 
 public inline fun <reified T : PandaObject> BamFactoryScope.getObjPointer(): ObjPointer<T> = buf.getObjPointer()
-public inline fun <reified T : PandaObject> BamFactoryScope.getObjPointerOrNull(): ObjPointer<T>? = buf.getObjPointerOrNull()
+public inline fun <reified T : PandaObject> BamFactoryScope.getObjPointerOrNull(): ObjPointer<T>? =
+    buf.getObjPointerOrNull()
+
 public inline fun <reified T : PandaObject> BamFactoryScope.getObjPointerList(): ObjList<T> = buf.getObjPointerList()
 
 public object BamFactory {
@@ -49,11 +51,19 @@ public object BamFactory {
 
     private fun registerType(name: String, builder: BamFactoryScope.() -> PandaObject): Unit = types.set(name, builder)
 
-    public fun buildType(bamFile: RawBamFile, buf: ByteBuffer, name: String): PandaObject =
-        types[name]?.invoke(object : BamFactoryScope {
+    public fun buildType(bamFile: RawBamFile, buf: ByteBuffer, name: String): PandaObject {
+        val obj = types[name]?.invoke(object : BamFactoryScope {
             override val bam: RawBamFile = bamFile
             override val buf: ByteBuffer = buf
         }) ?: error("don't have factory for $name")
+
+        //TODO: enable assert
+        //assert(!buf.hasRemaining()) {
+        //    "didn't complete consume the buffer for $name"
+        //}
+
+        return obj
+    }
 
     public val supportedClasses: Set<String>
         get() = types.keys
