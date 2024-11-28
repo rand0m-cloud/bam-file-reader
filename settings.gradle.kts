@@ -12,5 +12,5 @@ pluginManagement {
 }
 
 rootProject.name = "bam-file-reader"
-include(":library")
-include(":app")
+include("app", "library")
+includeBuild("bam2gltf")

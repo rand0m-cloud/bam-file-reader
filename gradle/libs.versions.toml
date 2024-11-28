@@ -5,12 +5,14 @@ kotlinx-json = "1.7.3"
 clikt = "5.0.1"
 shadow = "8.3.5"
 jreleaser = "1.15.0"
+kotlin-poet = "2.0.0"
 
 [libraries]
 joml = { module = "org.joml:joml", version.ref = "joml" }
 kotlinx-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-json" }
 kotlinx-serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-json" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+kotlin-poet = { module = "com.squareup:kotlinpoet", version.ref = "kotlin-poet" }
 
 
 [plugins]
