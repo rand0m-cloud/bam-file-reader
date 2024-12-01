@@ -139,14 +139,15 @@ fun JsonSchema.toKotlinType(isRequired: Boolean): TypeName = flatten().run {
     }
 }
 
-fun JsonSchema.toProperties(): Map<String, TypeName> {
-    val set = allOf.orEmpty().fold(mutableMapOf<String, TypeName>()) { acc, x ->
+fun JsonSchema.toProperties(): Map<String, Pair<TypeName, String>> {
+    val set = allOf.orEmpty().fold(mutableMapOf<String, Pair<TypeName, String>>()) { acc, x ->
         acc.putAll(x.toProperties())
         acc
     }
     properties.orEmpty().map { it to required.orEmpty().contains(it.key) }
         .forEach { (entry, isRequired) ->
-            set[entry.key] = entry.value.toKotlinType(isRequired)
+            set[entry.key] =
+                entry.value.toKotlinType(isRequired) to (entry.value.description ?: entry.value.title.orEmpty())
         }
 
     return set
@@ -157,11 +158,12 @@ fun FileBuilderScope.addObject(schema: JsonSchema) {
     when (schema.type) {
 
         "object" -> {
-            val properties = schema.toProperties()
+            val properties = schema.toProperties().toList().sortedBy { it.second.first.isNullable }
             if (properties.isEmpty()) {
                 fileSpec.addType(
                     TypeSpec.classBuilder(name)
                         .addModifiers(KModifier.VALUE)
+                        .addKdoc(schema.description.orEmpty())
                         .jvmInline()
                         .addAnnotation(Serializable::class)
                         .primaryConstructor(
@@ -171,6 +173,7 @@ fun FileBuilderScope.addObject(schema: JsonSchema) {
                         )
                         .addProperty(
                             PropertySpec.builder("inner", JsonElement::class)
+
                                 .initializer("inner")
                                 .build()
                         )
@@ -179,21 +182,30 @@ fun FileBuilderScope.addObject(schema: JsonSchema) {
             } else {
                 fileSpec.addType(
                     TypeSpec.classBuilder(name)
-                        .addModifiers(KModifier.DATA).apply {
+                        .addModifiers(KModifier.DATA)
+                        .apply {
                             primaryConstructor(FunSpec.constructorBuilder().apply {
                                 for ((propName, ty) in properties) {
-                                    if (ty.isNullable) {
-                                        addParameter(ParameterSpec.builder(propName, ty).defaultValue("null").build())
+                                    if (ty.first.isNullable) {
+                                        addParameter(
+                                            ParameterSpec.builder(propName, ty.first).defaultValue("null").build()
+                                        )
                                     } else {
-                                        addParameter(propName, ty)
+                                        addParameter(propName, ty.first)
                                     }
                                 }
                             }.build())
 
                             for ((propName, ty) in properties) {
-                                addProperty(PropertySpec.builder(propName, ty).initializer(propName).build())
+                                addProperty(
+                                    PropertySpec.builder(propName, ty.first).addKdoc(ty.second).initializer(propName)
+                                        .build()
+                                )
                             }
-                        }.addAnnotation(Serializable::class).build()
+                        }
+                        .addKdoc(schema.description.orEmpty())
+                        .addAnnotation(Serializable::class)
+                        .build()
                 )
             }
         }
@@ -226,6 +238,7 @@ fun FileBuilderScope.addEnum(schema: JsonSchema) {
         TypeSpec.classBuilder(schema.title!!)
             .addModifiers(KModifier.VALUE)
             .addAnnotation(Serializable::class)
+            .addKdoc(schema.description!!)
             .jvmInline()
 
             .primaryConstructor(FunSpec.constructorBuilder().addParameter("inner", valueType).build())
