@@ -3,6 +3,7 @@
 package org.toontownkt.bam
 
 import kotlinx.serialization.Serializable
+import org.toontownkt.bam.types.GeomVertexArrayData
 import org.toontownkt.bam.types.ObjPointer
 import org.toontownkt.bam.types.PandaObject
 import java.io.File
@@ -59,7 +60,10 @@ public data class BamFile(
     }
 
     @Suppress("UNCHECKED_CAST")
-    public operator  fun <T: PandaObject> get(ptr: ObjPointer<T>): T = objects[ptr.objectId] as T
+    public operator fun <T : PandaObject> get(ptr: ObjPointer<T>): T = objects[ptr.objectId] as T
+
+    public inline fun <reified T : PandaObject> getInstancesOf(): Map<ObjPointer<T>, T> =
+        objects.filter { (_, obj) -> obj is T }.map { (ptr, obj) -> ObjPointer<T>(ptr) to obj as T }.toMap()
 }
 
 @Serializable

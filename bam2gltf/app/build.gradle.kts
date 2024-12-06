@@ -7,6 +7,7 @@ plugins {
 dependencies {
     implementation(libs.kotlinx.serialization)
     implementation(libs.kotlinx.json)
+    implementation(libs.joml)
     implementation("io.github.rand0m-cloud.bam-file-reader:library")
 }
 

@@ -20,7 +20,9 @@ public sealed interface PandaObject
 
 @JvmInline
 @Serializable(with = ObjPointerSerializer::class)
-public value class ObjPointer<@Suppress("unused") T : PandaObject>(public val objectId: UShort)
+public value class ObjPointer<@Suppress("unused") T : PandaObject>(public val objectId: UShort) {
+    public fun <U : PandaObject> cast(): ObjPointer<U> = ObjPointer(objectId)
+}
 
 public object ObjPointerSerializer : KSerializer<ObjPointer<*>> {
     override val descriptor: SerialDescriptor
@@ -109,7 +111,7 @@ public sealed interface GeomEntry {
 @Serializable
 @SerialName("GeomEntry")
 public data class GeomEntryImpl(
-    override public val geom: ObjPointer<Geom>,
+    public override val geom: ObjPointer<Geom>,
     override val renderState: ObjPointer<RenderState>
 ) :
     GeomEntry
