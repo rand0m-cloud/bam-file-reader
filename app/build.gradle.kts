@@ -20,10 +20,6 @@ tasks.test {
     useJUnitPlatform()
 }
 
-kotlin {
-    jvmToolchain(20)
-}
-
 
 application {
     mainClass = "org.toontownkt.bam.app.MainKt"
