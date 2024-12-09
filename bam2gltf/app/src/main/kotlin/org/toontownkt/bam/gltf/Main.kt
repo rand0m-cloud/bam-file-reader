@@ -11,11 +11,12 @@ import kotlinx.serialization.json.put
 import org.joml.*
 import org.toontownkt.bam.*
 import org.toontownkt.bam.types.*
+import org.toontownkt.bam.types.Texture
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
-import kotlin.math.asin
-import kotlin.math.atan2
 
 private val json = Json { prettyPrint = true }
 
@@ -28,6 +29,10 @@ class GlTFBuilder<T>(
     private val _nodes: MutableList<Node> = mutableListOf(),
     private val _scenes: MutableList<Scene> = mutableListOf(),
     private val _meshes: MutableList<Mesh> = mutableListOf(),
+    private val _samplers: MutableList<Sampler> = mutableListOf(),
+    private val _images: MutableList<Image> = mutableListOf(),
+    private val _textures: MutableList<gltf.Texture> = mutableListOf(),
+    private val _materials: MutableList<Material> = mutableListOf()
 ) {
     private fun <T> MutableList<T>.addWithGlTFId(t: T): GlTFId = this.size.let {
         this += t
@@ -40,16 +45,24 @@ class GlTFBuilder<T>(
     val nodes: List<Node> = _nodes
     val scenes: List<Scene> = _scenes
     val meshes: List<Mesh> = _meshes
+    val samplers: List<Sampler> = _samplers
+    val images: List<Image> = _images
+    val textures: List<gltf.Texture> = _textures
+    val materials: List<Material> = _materials
 
     fun build(asset: Asset, scene: GlTFId = GlTFId(0)): GlTF = GlTF(
         asset,
         scene = scene,
-        buffers = _buffers,
-        bufferViews = _bufferViews,
-        accessors = _accessors,
-        meshes = _meshes,
-        scenes = _scenes,
-        nodes = _nodes
+        buffers = buffers,
+        bufferViews = bufferViews,
+        accessors = accessors,
+        meshes = meshes,
+        scenes = scenes,
+        nodes = nodes,
+        samplers = samplers,
+        images = images,
+        textures = textures,
+        materials = materials
     )
 
     fun buffer(buffer: Buffer): GlTFId = _buffers.addWithGlTFId(buffer)
@@ -58,16 +71,26 @@ class GlTFBuilder<T>(
     fun mesh(mesh: Mesh): GlTFId = _meshes.addWithGlTFId(mesh)
     fun scene(scene: Scene): GlTFId = _scenes.addWithGlTFId(scene)
     fun node(node: Node): GlTFId = _nodes.addWithGlTFId(node)
+    fun sampler(sampler: Sampler): GlTFId = _samplers.addWithGlTFId(sampler)
+    fun image(image: Image): GlTFId = _images.addWithGlTFId(image)
+    fun texture(texture: gltf.Texture): GlTFId = _textures.addWithGlTFId(texture)
+    fun material(material: Material): GlTFId = _materials.addWithGlTFId(material)
 }
 
 class BamContextBuilder(
     val bam: BamFile,
+    val resourceRoot: File,
+
     val geomVertexArrayDataToBuffer: MutableMap<ObjPointer<GeomVertexArrayData>, GlTFId> = mutableMapOf(),
     val geomVertexArrayDataToBufferView: MutableMap<ObjPointer<GeomVertexArrayData>, GlTFId> = mutableMapOf(),
     val geomToAccessor: MutableMap<ObjPointer<Geom>, Map<ObjPointer<GeomPrimitive>, Map<ArrayColumn, GlTFId>>> = mutableMapOf(),
     val geomToMesh: MutableMap<ObjPointer<GeomNode>, GlTFId> = mutableMapOf(),
+    val textureToTexture: MutableMap<ObjPointer<Texture>, GlTFId> = mutableMapOf(),
+    val textureToMaterial: MutableMap<ObjPointer<Texture>, GlTFId> = mutableMapOf(),
+
     val geomVertexArrayDatas: Map<ObjPointer<GeomVertexArrayData>, GeomVertexArrayData> = bam.getInstancesOf<GeomVertexArrayData>(),
-    val geomNodes: Map<ObjPointer<GeomNode>, GeomNode> = bam.getInstancesOf<GeomNode>()
+    val geomNodes: Map<ObjPointer<GeomNode>, GeomNode> = bam.getInstancesOf<GeomNode>(),
+    val textureObjects: Map<ObjPointer<Texture>, Texture> = bam.getInstancesOf<Texture>()
 )
 
 typealias BamGlTFBuilder = GlTFBuilder<BamContextBuilder>
@@ -76,11 +99,46 @@ val BamGlTFBuilder.bam: BamFile get() = extraData.bam
 val BamGlTFBuilder.geomVertexArrayDatas: Map<ObjPointer<GeomVertexArrayData>, GeomVertexArrayData>
     get() = extraData.geomVertexArrayDatas
 val BamGlTFBuilder.geomNodes: Map<ObjPointer<GeomNode>, GeomNode> get() = extraData.geomNodes
+val BamGlTFBuilder.textureObjects: Map<ObjPointer<Texture>, Texture> get() = extraData.textureObjects
+
+fun BamGlTFBuilder.resolveResource(fileName: String): File = extraData.resourceRoot.resolve(fileName)
 
 fun BamGlTFBuilder.createBuffers() {
     val map =
         geomVertexArrayDatas.mapValues { (_, data) ->
-            val buf = Buffer(data.data.size.toLong(), uri = data.data.toByteArray().createDataUri())
+            val format = bam[data.arrayFormat]
+            val columns = format.columns.map { ArrayColumn.fromGeomVertexColumn(bam, it) }
+            val index = columns.indexOfFirst { it == ArrayColumn.UV }
+            val byteData = if (index >= 0) {
+                val offset = columns.take(index).sumOf { it.byteLen }
+                val buffer = ByteBuffer.wrap(data.data.toByteArray()).order(ByteOrder.LITTLE_ENDIAN)
+
+                buffer.position(offset.toInt())
+
+                while (true) {
+                    val element = buffer.position()
+                    val u = buffer.getFloat()
+                    val v = 1.0f - buffer.getFloat()
+
+                    buffer.position(element)
+                    buffer.putFloat(u)
+                    buffer.putFloat(v)
+
+                    if ((element + format.stride.toInt()) >= buffer.limit()) {
+                        break
+                    } else {
+                        buffer.position(element + format.stride.toInt())
+                    }
+                }
+
+                buffer.rewind()
+
+                ByteArray(buffer.remaining()).also { buffer.get(it) }
+            } else {
+                data.data.toByteArray()
+            }
+
+            val buf = Buffer(byteData.size.toLong(), uri = byteData.createDataUri())
             buffer(buf)
         }
     extraData.geomVertexArrayDataToBuffer += map
@@ -112,10 +170,6 @@ fun BamGlTFBuilder.createAccessors() {
                 val data = bam[geom.vertexData]
                 val formats =
                     bam[data.format].formats.withIndex().associate { data.arrays[it.index] to bam[it.value].columns }
-                val textureAttrib = bam[bam[geomEntry.renderState].attribs[0].attrib] as? TextureAttrib
-                println(textureAttrib?.let {
-                    bam[it.onStages[0].texture].fileName
-                })
                 geomEntry.geom to geom.primitives.map { geomPrimitivePtr ->
                     val geomPrimitive = bam[geomPrimitivePtr]
 
@@ -178,6 +232,21 @@ fun BamGlTFBuilder.createMeshes() {
         val meshPrimitives = entry.value.geoms.flatMap {
             val geom = bam[it.geom]
             val geomAccessors = extraData.geomToAccessor[it.geom]!!
+
+
+            val renderState = bam[it.renderState]
+            val attribs = renderState.attribs.map {
+                bam[it.attrib]
+            }
+            val transparencyAttrib = attribs.firstNotNullOfOrNull { attrib -> attrib as? TransparencyAttrib }
+            val textureAttrib = attribs.firstNotNullOfOrNull { attrib -> attrib as? TextureAttrib }
+
+
+            val material = if (textureAttrib != null) {
+                val tex = textureAttrib.onStages[0].texture
+                extraData.textureToMaterial[tex]
+            } else null
+
             geom.primitives.map { geomPrimitiveObjPtr ->
                 val prim = bam[geomPrimitiveObjPtr]
                 val primAccessors = geomAccessors[geomPrimitiveObjPtr]!!
@@ -209,7 +278,8 @@ fun BamGlTFBuilder.createMeshes() {
                         }
                     },
                     indices = primAccessors.firstNotNullOfOrNull { entry -> if (entry.key == ArrayColumn.Index) entry.value else null },
-                    mode = mode
+                    mode = mode,
+                    material = material
                 )
             }
         }
@@ -225,31 +295,25 @@ fun BamGlTFBuilder.createNodes() {
 
     tree.visitDepthFirst {
         val node = bam[it.node]
-        extraData.geomToMesh
+
         val mesh = if (node is GeomNode) {
             extraData.geomToMesh[it.node.cast()]
         } else null
         val children = it.children.map { child -> nodeToNode[child.node]!! }
+
         val transform = bam[node.transform].toMatrix4f()
         val translation =
             Vector3f(transform.m30(), transform.m31(), transform.m32())
 
 
-        val upper3x3 = transform.get3x3(Matrix3f())
         val scale = transform.getScale(Vector3f())
-        val pureRotation = Matrix3f(
-            upper3x3.getColumn(0, Vector3f()).normalize(),
-            upper3x3.getColumn(1, Vector3f()).normalize(),
-            upper3x3.getColumn(2, Vector3f()).normalize()
-        )
-
-        val pitchYawRoll = pureRotation.getPitchYawRoll()
-        var rotation = Quaternionf()
+        var rotation = transform.getUnnormalizedRotation(Quaternionf())
 
         // if root node, rotate model so y+ up and z+ forward
         if (it.node.objectId == 1U.toUShort()) {
             rotation = rotation.rotateX(Math.toRadians(-90.0).toFloat()).rotateZ(Math.toRadians(180.0).toFloat())
         }
+
         nodeToNode[it.node] =
             node(
                 Node(
@@ -273,21 +337,56 @@ fun BamGlTFBuilder.createScenes() {
     scene(Scene(nodes = listOf(GlTFId(nodes.indices.last().toLong()))))
 }
 
-fun Matrix3f.getPitchYawRoll(): Vector3f {
-    val pitch = asin(-m20().toDouble()).toFloat()              // Rotation about X-axis
-    val yaw = atan2(m10().toDouble(), m00().toDouble()).toFloat() // Rotation about Y-axis
-    val roll = atan2(m21().toDouble(), m22().toDouble()).toFloat() // Rotation about Z-axis
+fun BamGlTFBuilder.createTextures() {
+    textureObjects.map { (ptr, tex) ->
+        val textureFile = resolveResource(tex.fileName)
+        val textureData = textureFile.readBytes()
+        val textureBuffer = buffer(Buffer(textureData.size.toLong(), uri = textureData.createDataUri()))
+        val textureBufferView = bufferView(BufferView(textureBuffer, textureData.size.toLong()))
+        val image = image(
+            Image(
+                name = tex.fileName, bufferView = textureBufferView, mimeType = when (textureFile.extension) {
+                    "png" -> MimeType.image_png
+                    "jpg" -> MimeType.image_jpeg
+                    "jpeg" -> MimeType.image_jpeg
+                    else -> error(textureFile.extension)
+                }
+            )
+        )
 
-    return Vector3f(pitch, yaw, roll)
+        assert(tex.magFilter == 1U.toUByte())
+        assert(tex.minFilter == 5U.toUByte())
+        assert(tex.wrapU == 1U.toUByte())
+        assert(tex.wrapV == 1U.toUByte())
+        assert(tex.alphaFileName.isBlank())
 
+        val sampler = sampler(
+            Sampler(
+                magFilter = SamplerMagFilter.LINEAR,
+                minFilter = SamplerMinFilter.LINEAR_MIPMAP_LINEAR,
+                wrapS = SamplerWrapS.REPEAT,
+                wrapT = SamplerWrapT.REPEAT,
+            )
+        )
 
+        val texture = texture(gltf.Texture(name = tex.fileName, sampler = sampler, source = image))
+        extraData.textureToTexture[ptr] = texture
+        extraData.textureToMaterial[ptr] = material(
+            Material(
+                name = tex.fileName,
+                pbrMetallicRoughness = MaterialPBRMetallicRoughness(baseColorTexture = TextureInfo(index = texture)),
+            )
+        )
+
+    }
 }
 
-fun BamFile.createGlTF(): GlTF =
-    BamGlTFBuilder(BamContextBuilder(this)).run {
+fun BamFile.createGlTF(resourceRoot: File): GlTF =
+    BamGlTFBuilder(BamContextBuilder(this, resourceRoot)).run {
         createBuffers()
         createBufferViews()
         createAccessors()
+        createTextures()
         createMeshes()
         createNodes()
         createScenes()
@@ -295,12 +394,12 @@ fun BamFile.createGlTF(): GlTF =
     }
 
 fun main() {
-    val bamFile = File("../../library/open-toontown-resources/phase_3/models/char/mickey-1200.bam")
+    val bamFile = File("../../library/open-toontown-resources/phase_3/models/char/minnie-1200.bam")
     val rawBam = RawBamFile.fromFile(bamFile)
     val bam = BamFile.fromRaw(rawBam)
 
     //println(bam.toNodeTree())
-    val gltf = bam.createGlTF()
+    val gltf = bam.createGlTF(File("../../library/open-toontown-resources"))
 
     //println(json.encodeToString(gltf))
     json.encodeToStream(gltf, File("/tmp/mine.gltf").outputStream())
