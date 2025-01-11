@@ -5,7 +5,9 @@ import org.joml.Vector2f
 import org.joml.Vector3f
 import org.joml.Vector4f
 import org.toontownkt.bam.getU16
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 public fun ByteBuffer.getVec2f(): Vector2f = Vector2f(getFloat(), getFloat())
 public fun ByteBuffer.getVec3f(): Vector3f = Vector3f(getFloat(), getFloat(), getFloat())

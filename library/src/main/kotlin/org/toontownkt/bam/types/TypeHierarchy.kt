@@ -14,6 +14,7 @@ import org.joml.Matrix4f
 import org.joml.Vector2f
 import org.joml.Vector3f
 import org.joml.Vector4f
+import org.toontownkt.bam.BamFile
 
 @Serializable
 public sealed interface PandaObject
@@ -21,8 +22,24 @@ public sealed interface PandaObject
 @JvmInline
 @Serializable(with = ObjPointerSerializer::class)
 public value class ObjPointer<@Suppress("unused") T : PandaObject>(public val objectId: UShort) {
-    public fun <U : PandaObject> cast(): ObjPointer<U> = ObjPointer(objectId)
+    @Deprecated("Use unsafeDowncast instead for some type safety", ReplaceWith("unsafeDowncast()"))
+    public fun <U : PandaObject> unsafeCast(): ObjPointer<U> = ObjPointer(objectId)
 }
+
+public inline fun <reified T, reified U> ObjPointer<T>.upcast(): ObjPointer<U>
+        where U : PandaObject,
+              T : U {
+    return ObjPointer(objectId)
+}
+
+public inline fun <reified T, reified U> ObjPointer<T>.unsafeDowncast(): ObjPointer<U>
+        where T : PandaObject,
+              U : T {
+    return ObjPointer(objectId)
+}
+
+public inline fun <reified T : PandaObject> ObjPointer<T>.resolve(bam: BamFile): T = bam[this]
+public inline fun <reified T : PandaObject> ObjList<T>.resolveAll(bam: BamFile): List<T> = map { it.resolve(bam) }
 
 public object ObjPointerSerializer : KSerializer<ObjPointer<*>> {
     override val descriptor: SerialDescriptor

@@ -12,6 +12,7 @@ public fun BamFactoryScope.getTransformState(): TransformState {
     val flags = getU32()
     var state = TransformState.Components()
 
+    println(flags)
     if (TransformState.Flags.ComponentsGiven.matches(flags)) {
         state = state.copy(pos = getVec3f())
         state = if (TransformState.Flags.QuaternionGiven.matches(flags)) {
